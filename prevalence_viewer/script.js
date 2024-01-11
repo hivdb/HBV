@@ -62,14 +62,22 @@ function displayTable(data) {
         }
 
         const cell = document.createElement('td');
+        const posElement = document.createElement('div');
+        posElement.className = 'pos';
+        posElement.textContent = pos;
+        cell.appendChild(posElement);
+
         posGroups[pos].sort((a, b) => b.pcnt - a.pcnt).forEach(mut => {
             const mutElement = document.createElement('div');
-            mutElement.textContent = mut.mut + ' ';
+            mutElement.textContent = mut.mut;
             const pcntElement = document.createElement('sup');
             pcntElement.textContent = mut.pcnt;
+            mutElement.className = 'mutations';
             mutElement.appendChild(pcntElement);
             cell.appendChild(mutElement);
         });
+
+        cell.children[1].className = 'consensus'
 
         table.lastChild.appendChild(cell);
     });
