@@ -1,0 +1,18 @@
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+th, td {
+    border: 1px solid black;
+    text-align: left;
+    font-size: 13px;
+    vertical-align: top;
+    padding: 0;
+}
+sup {
+    font-size: 9px;
+    padding: 0;
+}
+th {
+    background-color: #f2f2f2;
+}

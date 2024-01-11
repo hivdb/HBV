@@ -139,7 +139,10 @@ def collect_prevalence(genotype, aligned_RT):
             if mut.replace('-', '') != '':
                 mut = mut.replace('-', '')
             else:
-                mut = '-'
+                mut = 'del'
+
+            if len(mut) > 1:
+                mut = 'ins'
 
             cons = pos_cons[pos].replace('-', '')
 
