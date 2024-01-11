@@ -146,6 +146,15 @@ def collect_prevalence(genotype, aligned_RT):
 
             cons = pos_cons[pos].replace('-', '')
 
+            pcnt = num / num_total
+
+            round_number = 0
+            if pcnt < (1 / (10 ** (round_number + 2))):
+                continue
+
+            # if mut == 'X':
+            #     continue
+
             prevalence.append({
                 'genotype': genotype,
                 'cons': cons,
@@ -153,7 +162,7 @@ def collect_prevalence(genotype, aligned_RT):
                 'mut': mut,
                 'total': num_total,
                 'num': num,
-                'pcnt': round(num * 100 / num_total, 2),
+                'pcnt': round(pcnt * 100, round_number),
                 'is_cons': 'Y' if mut == cons else ''
             })
 
