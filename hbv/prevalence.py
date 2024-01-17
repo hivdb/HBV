@@ -6,6 +6,8 @@ from preset.fasta import dump_fasta
 from preset.fasta import load_fasta
 from operator import itemgetter
 from scipy.stats import entropy
+from itertools import combinations
+from statistics import mean
 
 
 HBVDB_GENOTEYPE_START_STOP = {
@@ -37,8 +39,11 @@ def get_prevalence():
     # genotype_detect_RT(genotype_files)
 
     prevalence = []
+    intra_dist = {}
     for genotype, i in genotype_files:
-        prevalence.extend(get_genotype_prevalence(genotype, i))
+        prev, dist = get_genotype_prevalence(genotype, i)
+        prevalence.extend(prev)
+        intra_dist[genotype] = dist
 
     dump_csv(DB / 'hbvdb_prevalence.csv', prevalence)
 
@@ -54,6 +59,8 @@ def get_prevalence():
     dump_fasta(DB / 'hbvdb' / 'overall_cons.fasta', {'overall': cons_seq})
 
     align_consensus(DB / 'hbvdb')
+
+    calc_inter_distance(DB / 'aligned_consensus.fasta', intra_dist)
 
 
 def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
@@ -289,7 +296,10 @@ def get_genotype_prevalence(genotype, genotype_file):
 
     aligned_RT = get_RT(aligned_seqs, *HBVDB_GENOTEYPE_START_STOP[genotype])
 
-    prevalence = collect_prevalence(genotype, aligned_RT)
+    prevalence, aligned_RT = collect_prevalence(genotype, aligned_RT)
+
+    # print(genotype)
+    intra_distance = calc_intra_distance(aligned_RT)
 
     dump_csv(DB / 'hbvdb' / f'{genotype}_prev.csv', prevalence)
 
@@ -298,7 +308,59 @@ def get_genotype_prevalence(genotype, genotype_file):
     dump_fasta(DB / 'hbvdb' / f'{genotype}_cons.fasta', {genotype: cons_seq})
     # print(genotype, cons_seq, len(cons_seq), cons_seq.count('-'))
 
-    return prevalence
+    return prevalence, intra_distance
+
+
+def calc_inter_distance(consensus_file, intra_dist):
+
+    consensus_list = load_fasta(consensus_file)
+    consensus_list.pop('overall')
+    consensus_list = [
+        (g, s)
+        for g, s in consensus_list.items()
+    ]
+
+    inter_distance = defaultdict(dict)
+    for (g1, s1), (g2, s2) in combinations(consensus_list, 2):
+        # print(f'inter distance {g1}, {g2},', calc_seq_distance(s1, s2))
+        inter_distance[g1][g2] = calc_seq_distance(s1, s2)
+        inter_distance[g2][g1] = calc_seq_distance(s1, s2)
+
+    for g, dist in intra_dist.items():
+        if g not in inter_distance:
+            continue
+        inter_distance[g][g] = dist
+
+    report = []
+    for g1, value in inter_distance.items():
+        rec = {
+            'genotype': g1
+        }
+        for g2 in sorted(value.keys()):
+            rec[g2] = f"{round(value[g2] * 100, 2)}%"
+
+        report.append(rec)
+
+    dump_csv(DB / 'inter_distance.csv', report)
+
+
+def calc_intra_distance(aligned_seq):
+    distance_list = []
+    for i, j in combinations(aligned_seq, 2):
+        distance_list.append(calc_seq_distance(i, j))
+
+    return mean(distance_list)
+
+
+def calc_seq_distance(seq1, seq2):
+    assert len(seq1) == len(seq2)
+    length = len(seq1)
+    diff = 0
+    for i, j in zip(seq1, seq2):
+        if i != j:
+            diff += 1
+
+    return diff / length
 
 
 def collect_prevalence(genotype, aligned_RT):
@@ -315,10 +377,18 @@ def collect_prevalence(genotype, aligned_RT):
     pos_mut = build_pos_mut(aligned_RT, merge_pos_map)
     pos_cons = collect_consensus(pos_mut)
 
-    return get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total)
+    return (
+        get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total),
+        get_aligned_seq_after_merge(aligned_RT, merge_pos_map)
+    )
 
 
-def get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total, round_number=0):
+def get_aligned_seq_after_merge(aligned_seq, merge_pos_map):
+    return merge_pos(aligned_seq, merge_pos_map)
+
+
+def get_prevalence_by_profile(
+        genotype, pos_mut, pos_cons, num_total, round_number=0):
 
     prevalence = []
     for pos, mut_list in pos_mut.items():
