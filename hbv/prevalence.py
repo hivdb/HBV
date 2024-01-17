@@ -2,6 +2,10 @@ from Bio import AlignIO
 from .preset import DB
 from collections import defaultdict
 from preset.file_format import dump_csv
+from preset.fasta import dump_fasta
+from preset.fasta import load_fasta
+from operator import itemgetter
+from scipy.stats import entropy
 
 
 HBVDB_GENOTEYPE_START_STOP = {
@@ -37,6 +41,183 @@ def get_prevalence():
         prevalence.extend(get_genotype_prevalence(genotype, i))
 
     dump_csv(DB / 'hbvdb_prevalence.csv', prevalence)
+
+    dump_pos_mut_by_genotype(prevalence)
+    dump_pos_mut_by_mutation(prevalence)
+
+    prevalence = get_overall_prevalance(prevalence)
+
+    dump_csv(DB / 'hbvdb' / 'overall_prev.csv', prevalence)
+
+    cons_seq = get_cons_seq(prevalence)
+
+    dump_fasta(DB / 'hbvdb' / 'overall_cons.fasta', {'overall': cons_seq})
+
+    align_consensus(DB / 'hbvdb')
+
+
+def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
+
+    prevalence = [
+        i
+        for i in prevalence
+        if i['genotype'] not in exclude_genotype
+    ]
+
+    genotypes = sorted(list(set(
+        i['genotype']
+        for i in prevalence
+    )))
+
+    pos_mut_list = set([
+        (i['pos'], i['mut'])
+        for i in prevalence
+    ])
+
+    pos_mut_list = {
+        (pos, mut): {
+            g: 0
+            for g in genotypes
+        }
+        for pos, mut in pos_mut_list
+    }
+
+    for i in prevalence:
+        pos_mut_list[(i['pos'], i['mut'])][i['genotype']] = i['pcnt']
+
+    report = []
+
+    for (pos, mut), value in pos_mut_list.items():
+        record = {
+            'pos': pos,
+            'mut': mut
+        }
+        for g, pcnt in value.items():
+            record[g] = pcnt
+
+        report.append(record)
+
+    report.sort(key=itemgetter('pos', 'mut'))
+
+    dump_csv(DB / 'genotype_compare.csv', report)
+
+
+def dump_pos_mut_by_mutation(prevalence, exclude_genotype=['RF']):
+
+    prevalence = [
+        i
+        for i in prevalence
+        if i['genotype'] not in exclude_genotype
+    ]
+
+    muts = sorted(list(set(
+        i['mut']
+        for i in prevalence
+        if i['mut'] not in ['X', 'del', 'ins']
+    )))
+
+    pos_genotype = set([
+        (i['pos'], i['genotype'])
+        for i in prevalence
+    ])
+
+    pos_genotype = {
+        (pos, genotype): {
+            m: 0
+            for m in muts
+        }
+        for pos, genotype in pos_genotype
+    }
+
+    for i in prevalence:
+        if i['mut'] in ['X', 'del', 'ins']:
+            continue
+        pos_genotype[(i['pos'], i['genotype'])][i['mut']] = i['pcnt']
+
+    report = []
+
+    for (pos, genotype), value in pos_genotype.items():
+        record = {
+            'pos': pos,
+            'genotype': genotype
+        }
+        for m, pcnt in value.items():
+            record[m] = pcnt
+
+        e = entropy([
+            pcnt
+            for _, pcnt in value.items()
+        ], base=2)
+
+        record['entropy'] = e
+
+        report.append(record)
+
+    report.sort(key=itemgetter('pos', 'genotype'))
+
+    dump_csv(DB / 'genotype_compare_by_mut.csv', report)
+
+
+def align_consensus(folder, exclude_genotype=['RF']):
+
+    fasta_files = []
+
+    for i in folder.iterdir():
+        if i.suffix != '.fasta':
+            continue
+        fasta_files.append(i)
+
+    fasta_files.sort()
+
+    consensus_list = {}
+    for i in fasta_files:
+        consensus_list.update(load_fasta(i))
+
+    consensus_list = {
+        k: v
+        for k, v in consensus_list.items()
+        if k not in exclude_genotype
+    }
+
+    dump_fasta(DB / 'aligned_consensus.fasta', consensus_list, 'overall')
+
+
+def get_overall_prevalance(prevalence, exclude_genotype=['RF']):
+
+    prevalence = [
+        i
+        for i in prevalence
+        if i['genotype'] not in exclude_genotype
+    ]
+
+    genotype_num_seq = {}
+    for i in prevalence:
+        genotype = i['genotype']
+        if genotype in exclude_genotype:
+            continue
+
+        total = i['total']
+        genotype_num_seq[genotype] = total
+
+    total = sum([
+        t
+        for g, t in genotype_num_seq.items()
+    ])
+
+    profile = defaultdict(dict)
+    for i in prevalence:
+        pos = i['pos']
+        mut = i['mut']
+        num = i['num']
+
+        if pos not in profile:
+            profile[pos] = defaultdict(int)
+
+        profile[pos][mut] += num
+
+    pos_cons = collect_consensus(profile)
+
+    return get_prevalence_by_profile('all', profile, pos_cons, total)
 
 
 def genotype_detect_RT(genotype_files):
@@ -113,7 +294,9 @@ def get_genotype_prevalence(genotype, genotype_file):
     dump_csv(DB / 'hbvdb' / f'{genotype}_prev.csv', prevalence)
 
     cons_seq = get_cons_seq(prevalence)
-    print(genotype, cons_seq, len(cons_seq), cons_seq.count('-'))
+
+    dump_fasta(DB / 'hbvdb' / f'{genotype}_cons.fasta', {genotype: cons_seq})
+    # print(genotype, cons_seq, len(cons_seq), cons_seq.count('-'))
 
     return prevalence
 
@@ -132,6 +315,11 @@ def collect_prevalence(genotype, aligned_RT):
     pos_mut = build_pos_mut(aligned_RT, merge_pos_map)
     pos_cons = collect_consensus(pos_mut)
 
+    return get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total)
+
+
+def get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total, round_number=0):
+
     prevalence = []
     for pos, mut_list in pos_mut.items():
         for mut, num in mut_list.items():
@@ -148,7 +336,6 @@ def collect_prevalence(genotype, aligned_RT):
 
             pcnt = num / num_total
 
-            round_number = 0
             if pcnt < (1 / (10 ** (round_number + 2))):
                 continue
 

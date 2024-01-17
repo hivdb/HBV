@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 biopython = "^1.83"
+scipy = "^1.11.4"
 
 
 [build-system]
