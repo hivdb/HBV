@@ -33,6 +33,8 @@ def get_prevalence():
             continue
 
         genotype = i.name.split('_', 1)[0]
+        if genotype == 'RF':
+            continue
         genotype_files.append((genotype, i))
 
     genotype_files.sort(key=lambda x: x[0])
@@ -46,11 +48,18 @@ def get_prevalence():
         prev, aligned_RT = get_genotype_prevalence(genotype, i)
 
         prevalence.extend(prev)
-        if genotype != 'RF':
-            all_aligned_RT.extend(aligned_RT)
+        # if genotype != 'RF':
+        all_aligned_RT.extend(aligned_RT)
 
         # dist = calc_intra_distance(aligned_RT)
         # intra_dist[genotype] = dist
+
+    overall_cons_seq = get_overall_cons_by_genotype(DB / 'hbvdb')
+    dump_fasta(
+        DB / 'hbvdb' / 'overall_cons.fasta', {'overall': overall_cons_seq})
+
+    for i in prevalence:
+        i['overall_cons'] = overall_cons_seq[i['pos'] - 1]
 
     dump_csv(DB / 'hbvdb_prevalence.csv', prevalence)
 
@@ -66,9 +75,8 @@ def get_prevalence():
     # TODO a switch between two different ways of calc over all cons
     # save two version of overall cons to a single folder
     # overall_cons_seq = get_cons_seq(prevalence)
-    overall_cons_seq = get_overall_cons_by_genotype(DB / 'hbvdb')
-
-    dump_fasta(DB / 'hbvdb' / 'overall_cons.fasta', {'overall': overall_cons_seq})
+    # dump_fasta(
+    #     DB / 'hbvdb' / 'overall_cons.fasta', {'overall': overall_cons_seq})
 
     align_consensus(DB / 'hbvdb')
 
@@ -269,7 +277,7 @@ def get_aligned_seq_after_merge(aligned_seq, merge_pos_map):
 
 
 def get_prevalence_by_profile(
-        genotype, pos_mut, pos_cons, num_total, round_number=0):
+        genotype, pos_mut, pos_cons, num_total, round_number=1):
 
     prevalence = []
     for pos, mut_list in pos_mut.items():
@@ -300,8 +308,11 @@ def get_prevalence_by_profile(
                 'mut': mut,
                 'total': num_total,
                 'num': num,
-                'pcnt': round(pcnt * 100, round_number),
-                'is_cons': 'Y' if mut == cons else ''
+                'pcnt': (
+                    round(pcnt * 100, round_number)
+                    if round_number else round(pcnt * 100)
+                ),
+                # 'is_cons': 'Y' if mut == cons else ''
             })
 
     return prevalence

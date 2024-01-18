@@ -2,31 +2,58 @@ table {
     border-collapse: collapse;
     width: 100%;
 }
-th, td {
-    border: 1px solid black;
+
+td .mutationGroup{
     text-align: left;
-    font-size: 13px;
-    vertical-align: top;
+    /* font-family: Monaco, monospace; */
+}
+.pos {
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid black;
+    font-size: 15px;
+    vertical-align: bottom;
     padding: 0;
-    padding-bottom: 20px;
-    border: none;
-}
-th, td .pos {
-    text-align: center;
+    text-align: left;
     padding-bottom: 5px;
+    font-weight: bold;
 }
-th, td sup {
+
+.mutationGroup {
+    vertical-align: top;
+    padding-bottom: 1em;
+}
+
+.genotype {
+    padding-right: 1em;
+    text-align: right;
+    vertical-align: top;
+    font-weight: bold;
+    /* font-size: 20px; */
+}
+
+.mutations {
+    text-align: left;
+}
+.mutations sup {
     font-size: 9px;
     padding: 0;
-
-}
-th, td .mutations {
-    color: #1e88e5;
 }
 
-th, td .consensus {
+.pcnt90 {
     color: #0b0b0b;
 }
-th {
-    background-color: #f2f2f2;
+
+
+.pcnt50 {
+    color: #0088ff;
+}
+
+.pcnt10 {
+    color: hwb(126 1% 18%);
+}
+
+.pcnt1 {
+    color: #ff8000;
+
 }

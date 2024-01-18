@@ -6,6 +6,7 @@ function loadFile(event) {
         readFileContent(input.files[0]).then(content => {
             const data = parseCSV(content);
             displayTable(data);
+            document.getElementById('csvFileInput').style.display = 'none';
         }).catch(error => console.log(error));
     }
 }
@@ -61,21 +62,29 @@ function displayRow(data, table) {
     data.forEach((pair, index) => {
         var pos = pair[0];
         var rows = pair[1];
+        var overall_cons = rows[0].overall_cons;
 
         if (index % num_per_row === 0) {
             var cell = document.createElement('td');
             var posElement = document.createElement('div')
-            posElement.className = 'pos'
-            posElement.textContent = 'Genotype'
+            posElement.textContent = ''
             cell.appendChild(posElement);
             table.lastChild.appendChild(cell);
         }
 
         var cell = document.createElement('td');
+        cell.className = 'pos';
         var posElement = document.createElement('div');
-        posElement.className = 'pos';
-        posElement.textContent = pos;
+        index += 1
+        if ((index % num_per_row) === 0 || (index % 5 == 0) || (index === 1)) {
+            posElement.textContent = pos;
+        } else {
+            posElement.textContent = ' '
+        }
+        var consElement = document.createElement('div');
+        consElement.textContent = overall_cons;
         cell.appendChild(posElement);
+        cell.appendChild(consElement);
         table.lastChild.appendChild(cell);
     });
 
@@ -94,25 +103,37 @@ function displayRow(data, table) {
 
 function displayGenotype(genotype, data, table) {
 
-    data = groupByPos(data);
+    groupData = groupByPos(data);
 
     table.appendChild(document.createElement('tr'));
 
     var cell = document.createElement('td');
+    cell.className = 'genotype';
+
     var posElement = document.createElement('div')
-    posElement.textContent = genotype;
+    posElement.textContent = genotype + " (" + data[0].total + ")";
     cell.appendChild(posElement);
     table.lastChild.appendChild(cell)
 
-    Object.keys(data).sort((a, b) => a - b).forEach((pos, index) => {
+    Object.keys(groupData).sort((a, b) => a - b).forEach((pos, index) => {
         var cell = document.createElement('td');
+        cell.className = 'mutationGroup';
 
-        data[pos].sort((a, b) => b.pcnt - a.pcnt).forEach(mut => {
+        groupData[pos].sort((a, b) => b.pcnt - a.pcnt).forEach(mut => {
             const mutElement = document.createElement('div');
             mutElement.textContent = mut.mut;
             const pcntElement = document.createElement('sup');
             pcntElement.textContent = mut.pcnt;
             mutElement.className = 'mutations';
+            if (mut.pcnt >= 90 && mut.mut == mut.overall_cons) {
+                mutElement.className += ' pcnt100';
+            } else if (mut.pcnt >= 50) {
+                mutElement.className += ' pcnt50';
+            } else if (mut.pcnt >= 10) {
+                mutElement.className += ' pcnt10';
+            } else {
+                mutElement.className += ' pcnt1';
+            }
             mutElement.appendChild(pcntElement);
             cell.appendChild(mutElement);
         });
