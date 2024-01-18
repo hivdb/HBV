@@ -57,3 +57,8 @@ td .mutationGroup{
     color: #ff8000;
 
 }
+
+
+.pcnt01 {
+    color: hwb(0 0% 4%);
+}

@@ -84,7 +84,7 @@ function displayRow(data, table) {
         var consElement = document.createElement('div');
         consElement.textContent = overall_cons;
         cell.appendChild(posElement);
-        cell.appendChild(consElement);
+        // cell.appendChild(consElement);
         table.lastChild.appendChild(cell);
     });
 
@@ -93,7 +93,10 @@ function displayRow(data, table) {
     data = groupByGenotype(data)
 
     const sortedKeys = Object.keys(data).sort();
-    const sortedGroup = sortedKeys.map(key => [key, data[key]]);
+    var sortedGroup = sortedKeys.map(key => [key, data[key]]);
+
+    var lastElement = sortedGroup.pop();
+    sortedGroup.unshift(lastElement);
 
     sortedGroup.forEach(([genotype, row]) => {
         displayGenotype(genotype, row, table)
@@ -131,9 +134,12 @@ function displayGenotype(genotype, data, table) {
                 mutElement.className += ' pcnt50';
             } else if (mut.pcnt >= 10) {
                 mutElement.className += ' pcnt10';
-            } else {
+            } else if (mut.pcnt >= 1) {
                 mutElement.className += ' pcnt1';
+            } else {
+                mutElement.className += ' pcnt01';
             }
+
             mutElement.appendChild(pcntElement);
             cell.appendChild(mutElement);
         });
