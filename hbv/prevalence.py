@@ -25,7 +25,7 @@ HBVDB_GENOTEYPE_START_STOP = {
 }
 
 
-def get_prevalence():
+def get_prevalence(exclude_genotype=['RF']):
 
     folder = DB / 'hbvdb'
     genotype_files = []
@@ -34,7 +34,7 @@ def get_prevalence():
             continue
 
         genotype = i.name.split('_', 1)[0]
-        if genotype == 'RF':
+        if genotype in exclude_genotype:
             continue
         genotype_files.append((genotype, i))
 
@@ -49,7 +49,6 @@ def get_prevalence():
         prev, aligned_RT = get_genotype_prevalence(genotype, i)
 
         prevalence.extend(prev)
-        # if genotype != 'RF':
         all_aligned_RT.extend(aligned_RT)
 
         # dist = calc_intra_distance(aligned_RT)
@@ -57,7 +56,7 @@ def get_prevalence():
 
     # calc_covariation(all_aligned_RT)
 
-    overall_prev = get_overall_prevalance(prevalence)
+    overall_prev = get_overall_prevalance(all_aligned_RT)
 
     dump_csv(DB / 'hbvdb' / 'overall_prev.csv', overall_prev)
 
@@ -76,7 +75,7 @@ def get_prevalence():
     dump_csv(DB / 'hbvdb_prevalence.csv', prevalence)
 
     dump_pos_mut_by_genotype(prevalence)
-    dump_pos_mut_by_mutation(prevalence)
+    # dump_pos_mut_by_mutation(prevalence)
 
     align_consensus(DB / 'hbvdb')
 
@@ -96,11 +95,14 @@ def get_overall_cons_by_genotype(folder, exclude_genotype=['RF']):
         for i, j in load_fasta(i).items():
             aligned_seq.append(j)
 
+    num_total = len(aligned_seq)
+
     pos_mut = build_pos_mut(aligned_seq)
 
     pos_cons = collect_consensus(pos_mut)
 
-    prevalence = get_prevalence_by_profile('overall', pos_mut, pos_cons)
+    prevalence = get_prevalence_by_profile(
+        'overall', pos_mut, pos_cons, num_total)
 
     cons_seq = get_cons_seq(prevalence)
 
@@ -131,39 +133,16 @@ def align_consensus(folder, exclude_genotype=['RF']):
     dump_fasta(DB / 'aligned_consensus.fasta', consensus_list, 'overall')
 
 
-def get_overall_prevalance(prevalence, exclude_genotype=['RF']):
+def get_overall_prevalance(aligned_RT):
 
-    prevalence = [
-        i
-        for i in prevalence
-        if i['genotype'] not in exclude_genotype
-    ]
+    pos_mut = build_pos_mut(aligned_RT)
 
-    genotype_num_seq = {}
-    for i in prevalence:
-        genotype = i['genotype']
-        if genotype in exclude_genotype:
-            continue
+    pos_cons = collect_consensus(pos_mut)
 
-        total = i['total']
-        genotype_num_seq[genotype] = total
-
-    profile = defaultdict(dict)
-
-    for i in prevalence:
-        pos = i['pos']
-        mut = i['mut']
-        num = i['num']
-
-        if pos not in profile:
-            profile[pos] = defaultdict(int)
-
-        profile[pos][mut] += num
-
-    pos_cons = collect_consensus(profile)
+    num_total = len(aligned_RT)
 
     return get_prevalence_by_profile(
-        'overall', profile, pos_cons, round_number=2)
+        'overall', pos_mut, pos_cons, num_total, round_number=2)
 
 
 def genotype_detect_RT(genotype_files):
@@ -259,8 +238,10 @@ def collect_prevalence(genotype, aligned_RT):
     pos_mut = build_pos_mut(aligned_RT, merge_pos_map)
     pos_cons = collect_consensus(pos_mut)
 
+    num_total = len(aligned_RT)
+
     return (
-        get_prevalence_by_profile(genotype, pos_mut, pos_cons),
+        get_prevalence_by_profile(genotype, pos_mut, pos_cons, num_total),
         get_aligned_seq_after_merge(aligned_RT, merge_pos_map)
     )
 
@@ -270,14 +251,14 @@ def get_aligned_seq_after_merge(aligned_seq, merge_pos_map):
 
 
 def get_prevalence_by_profile(
-        genotype, pos_mut, pos_cons, round_number=0):
+        genotype, pos_mut, pos_cons, num_total, round_number=1):
 
     prevalence = []
     for pos, mut_list in pos_mut.items():
-        num_total = sum([
-            num
-            for _, num in mut_list.items()
-        ])
+        # num_total = sum([
+        #     num
+        #     for _, num in mut_list.items()
+        # ])
         for mut, num in mut_list.items():
 
             if mut.replace('-', '') != '':
