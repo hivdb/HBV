@@ -10,6 +10,7 @@ from .genotype_distance import calc_inter_distance
 from .genotype import dump_pos_mut_by_genotype
 from .genotype import dump_pos_mut_by_mutation
 from preset.table import group_records_by
+from collections import Counter
 
 
 HBVDB_GENOTEYPE_START_STOP = {
@@ -261,15 +262,7 @@ def get_prevalence_by_profile(
         # ])
         for mut, num in mut_list.items():
 
-            if mut.replace('-', '') != '':
-                mut = mut.replace('-', '')
-            else:
-                mut = 'del'
-
-            if len(mut) > 1:
-                mut = 'ins'
-
-            cons = pos_cons[pos].replace('-', '')
+            cons = pos_cons[pos]
 
             pcnt = num / num_total
 
@@ -290,7 +283,24 @@ def get_prevalence_by_profile(
                 # 'is_cons': 'Y' if mut == cons else ''
             })
 
+    assert_prevalance_report(prevalence)
+
     return prevalence
+
+
+def assert_prevalance_report(prevalence):
+
+    for key, rows in group_records_by(prevalence, ['genotype', 'pos']).items():
+        mutations = [
+            i['mut']
+            for i in rows
+        ]
+
+        key = dict(key)
+        genotype = key['genotype']
+        pos = key['pos']
+        for mut, cnt in Counter(mutations).items():
+            assert cnt == 1, f"{genotype}, {pos}, {mut}"
 
 
 def build_pos_mut(aligned_seq, merge_pos_map={}, exclude_mut=[]):
@@ -308,6 +318,14 @@ def build_pos_mut(aligned_seq, merge_pos_map={}, exclude_mut=[]):
             mut = seq[ofst]
             if mut in exclude_mut:
                 continue
+
+            if mut.replace('-', '') != '':
+                mut = mut.replace('-', '')
+            else:
+                mut = '-'
+
+            if len(mut) > 1:
+                mut = '_'
 
             pos = ofst + 1
 

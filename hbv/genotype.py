@@ -51,9 +51,20 @@ def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
             'pos': pos,
             'mut': mut
         }
+
+        # TODO assert function
+        # asserter = []
+        # overall_asserter = 0
         for g, (pcnt, num) in value.items():
             record[f"#{g} ({genotype_total[g]})"] = num
             record[f"%{g}"] = f'{pcnt}%'
+
+            # if g != 'overall':
+            #     asserter.append(num)
+            # else:
+            #     overall_asserter = num
+
+        # assert overall_asserter >= sum(asserter), f"{overall_asserter}{asserter}"
 
         if (pos, mut) in usual_mut:
             record['is_usual'] = 'yes'
