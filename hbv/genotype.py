@@ -4,9 +4,14 @@ from preset.table import group_records_by
 from operator import itemgetter
 from scipy.stats import entropy
 from math import ceil
+from .preset import usual_cutoff_func
+from .preset import get_usual_mutation_func
+import re
+from .preset import AA
 
 
-def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
+def dump_pos_mut_by_genotype(
+        prevalence, save_folder, exclude_genotype=['RF']):
 
     prevalence = [
         i
@@ -42,6 +47,8 @@ def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
             (i['pos'], i['mut'])][i['genotype']] = (
                 i['pcnt'], i['num'])
 
+    get_usual_mutation = globals()[get_usual_mutation_func]
+
     usual_mut = get_usual_mutation(prevalence)
 
     report = []
@@ -73,16 +80,20 @@ def dump_pos_mut_by_genotype(prevalence, exclude_genotype=['RF']):
 
     report.sort(key=itemgetter('pos', 'mut'))
 
-    dump_csv(DB / 'genotype_compare.csv', report)
+    dump_csv(DB / save_folder / 'genotype_compare.csv', report)
 
 
-def get_usual_mutation(prevalence):
+def get_usual_mutation_by_genotype_num(prevalence):
 
     prevalence = [
         i
         for i in prevalence
         if i['genotype'] != 'overall'
     ]
+
+    prepare_cutoff_config, apply_cutoff_config = usual_cutoff_func
+    prepare_cutoff_config = globals()[prepare_cutoff_config]
+    apply_cutoff_config = globals()[apply_cutoff_config]
 
     cutoff_config = prepare_cutoff_config(prevalence)
 
@@ -99,26 +110,7 @@ def get_usual_mutation(prevalence):
     return usual_mut
 
 
-def prepare_cutoff_config(prevalence):
-    cutoff_config = {
-    }
-
-    # num_genotype = len(set(
-    #     i['genotype']
-    #     for i in prevalence
-    # ))
-
-    # num_cut = 2
-
-    # for i in range(num_genotype):
-    #     num_genotype_cut = num_genotype - i
-    #     if num_genotype_cut == 0:
-    #         break
-
-    #     cutoff_config[num_cut] = num_genotype_cut
-    #     num_cut *= 2
-
-    # print(cutoff_config)
+def gradually_by_genotype_and_num(prevalence):
 
     genotype_limit = {
         i['genotype']: max(ceil(i['total'] * 0.005), 2)
@@ -128,17 +120,7 @@ def prepare_cutoff_config(prevalence):
     return genotype_limit
 
 
-def apply_cutoff_config(cut_off_config, value):
-    # for num_cut, num_genotype_cut in cut_off_config.items():
-
-    #     num_at_least = len([
-    #         i
-    #         for i in value
-    #         if i['num'] >= num_cut
-    #     ])
-
-    #     if num_at_least >= num_genotype_cut:
-    #         return True
+def apply_gradually_by_genotype_and_num(cut_off_config, value):
 
     for i in range(len(cut_off_config)):
         at_least = len(cut_off_config) - i
@@ -155,7 +137,19 @@ def apply_cutoff_config(cut_off_config, value):
     return False
 
 
-def dump_pos_mut_by_mutation(prevalence, exclude_genotype=['RF']):
+def get_usual_mutation_by_overall_0001(prevalence):
+    return [
+        (i['pos'], i['mut'])
+        for i in prevalence
+        if (
+            i['genotype'] == 'overall'
+            and i['pcnt'] >= 0.1
+            and re.match(AA, i['mut'])
+        )
+    ]
+
+
+def dump_pos_mut_by_mutation(prevalence, save_folder, exclude_genotype=['RF']):
 
     prevalence = [
         i
@@ -208,4 +202,4 @@ def dump_pos_mut_by_mutation(prevalence, exclude_genotype=['RF']):
 
     report.sort(key=itemgetter('pos', 'genotype'))
 
-    dump_csv(DB / 'genotype_compare_by_mut.csv', report)
+    dump_csv(DB / save_folder / 'genotype_compare_by_mut.csv', report)
