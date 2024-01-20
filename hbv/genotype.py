@@ -8,6 +8,7 @@ from .preset import usual_cutoff_func
 from .preset import get_usual_mutation_func
 import re
 from .preset import AA
+from Bio.Align import substitution_matrices
 
 
 def dump_pos_mut_by_genotype(
@@ -30,21 +31,23 @@ def dump_pos_mut_by_genotype(
     }
 
     pos_mut_list = set([
-        (i['pos'], i['mut'])
+        (i['pos'], i['mut'], i['overall_cons'])
         for i in prevalence
     ])
 
     pos_mut_list = {
-        (pos, mut): {
+        (pos, mut, cons): {
             g: (0, 0)
             for g in genotypes
         }
-        for pos, mut in pos_mut_list
+        for pos, mut, cons in pos_mut_list
     }
 
     for i in prevalence:
         pos_mut_list[
-            (i['pos'], i['mut'])][i['genotype']] = (
+            (
+                i['pos'], i['mut'], i['overall_cons']
+            )][i['genotype']] = (
                 i['pcnt'], i['num'])
 
     get_usual_mutation = globals()[get_usual_mutation_func]
@@ -53,10 +56,12 @@ def dump_pos_mut_by_genotype(
 
     report = []
 
-    for (pos, mut), value in pos_mut_list.items():
+    for (pos, mut, cons), value in pos_mut_list.items():
+
         record = {
             'pos': pos,
-            'mut': mut
+            'overall_cons': cons,
+            'mut': mut,
         }
 
         # TODO assert function
@@ -75,6 +80,11 @@ def dump_pos_mut_by_genotype(
 
         if (pos, mut) in usual_mut:
             record['is_usual'] = 'yes'
+
+        record['blosum62'] = calc_amino_acid_substitution(
+            mut, cons
+        )
+        record['maybe_APOBEC'] = 'yes' if maybe_apobec(cons, mut) else ''
 
         report.append(record)
 
@@ -203,3 +213,39 @@ def dump_pos_mut_by_mutation(prevalence, save_folder, exclude_genotype=['RF']):
     report.sort(key=itemgetter('pos', 'genotype'))
 
     dump_csv(DB / save_folder / 'genotype_compare_by_mut.csv', report)
+
+
+blosum62 = substitution_matrices.load("BLOSUM62")
+blosum80 = substitution_matrices.load('BLOSUM80')
+
+
+def calc_amino_acid_substitution(a1, a2, special=['-', '_', 'X']):
+    if (a1 in special) or (a2 in special):
+        return ''
+    return blosum62[a1][a2]
+
+APOBEC = [
+    ('A', 'T'),
+    ('C', 'Y'),
+    ('D', 'N'),
+    ('E', 'K'),
+    ('G', 'R'),
+    ('G', 'K'),
+    ('G', 'S'),
+    ('G', 'E'),
+    ('G', 'D'),
+    ('G', 'N'),
+    ('M', 'I'),
+    ('R', 'K'),
+    ('R', 'H'),
+    ('R', 'Q'),
+    ('S', 'N'),
+    ('V', 'M'),
+    ('V', 'I'),
+    ('W', '*'),
+]
+
+
+def maybe_apobec(cons, mut):
+    if (cons, mut) in APOBEC:
+        return True

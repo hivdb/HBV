@@ -288,3 +288,4 @@ def seq_filter(seqs, num_rear_highest=6):
             filtered.append(seq)
 
     return filtered
+
