@@ -84,7 +84,7 @@ def dump_pos_mut_by_genotype(
         record['blosum62'] = calc_amino_acid_substitution(
             mut, cons
         )
-        record['maybe_APOBEC'] = 'yes' if maybe_apobec(cons, mut) else ''
+        # record['maybe_APOBEC'] = 'yes' if maybe_apobec(cons, mut) else ''
 
         report.append(record)
 
