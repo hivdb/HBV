@@ -5,8 +5,8 @@ DB = WS / 'database'
 
 AA = r'[AC-IK-WY]'
 
-overall_pcnt_round = 1
-genotype_pcnt_round = 0
+overall_pcnt_round = 5
+genotype_pcnt_round = 5
 
 usual_cutoff_func = (
     'gradually_by_genotype_and_num', 'apply_gradually_by_genotype_and_num')
